@@ -1,5 +1,6 @@
 import os
 import threading
+import asyncio  # Added for sleep delay
 from flask import Flask
 from telegram import Update
 from telegram.ext import ApplicationBuilder, CommandHandler, MessageHandler, filters, ContextTypes
@@ -23,15 +24,38 @@ def run_flask():
 # --- Your Bot's Logic ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send me any text and I will return it in FULL BOLD.")
+    await update.message.reply_text("Send me the bulk text. I will split them by 'Referral Alert' and make them BOLD.")
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     raw_text = update.message.text
+    
+    # 1. Define the text that separates the posts.
+    # We assume every post starts with this exact header.
+    delimiter = "🚨 Referral Alert 🚨"
 
-    # Make ENTIRE message bold using HTML
-    bold_text = f"<b>{raw_text}</b>"
+    # 2. Check if the text actually contains multiple posts
+    if delimiter in raw_text:
+        # Split the text by the delimiter. 
+        # This creates a list, but removes the delimiter itself.
+        parts = raw_text.split(delimiter)
 
-    await update.message.reply_text(bold_text, parse_mode="HTML")
+        for part in parts:
+            clean_part = part.strip()
+            
+            # Only process if there is text left (split sometimes creates empty strings)
+            if clean_part:
+                # 3. Reconstruct the message: Add the delimiter back + the content + Bold Tags
+                final_message = f"<b>{delimiter}\n{clean_part}</b>"
+                
+                await update.message.reply_text(final_message, parse_mode="HTML")
+                
+                # 4. Wait 1 second between sends to avoid Telegram 'Flood Control' errors
+                await asyncio.sleep(1)
+    
+    else:
+        # If no delimiter is found, just bold the whole thing as one message
+        bold_text = f"<b>{raw_text}</b>"
+        await update.message.reply_text(bold_text, parse_mode="HTML")
 
 def main():
     # Read token from environment variable
@@ -52,7 +76,7 @@ def main():
     # --------------------------------------------------
 
     # Start the bot
-    print("🤖 Bold HTML Bot is running...")
+    print("🤖 Bold Splitter Bot is running...")
     app.run_polling()
 
 if __name__ == "__main__":
