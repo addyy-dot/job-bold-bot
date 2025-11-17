@@ -21,29 +21,40 @@ def run_flask():
 # --- Bot Logic ---
 
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
-    await update.message.reply_text("Send me the bulk text. I will split them and add a blank line after the header.")
+    await update.message.reply_text("Send me text. I will detect 'Referral Alert', split posts, add emojis, and bold them.")
 
 async def handle_text(update: Update, context: ContextTypes.DEFAULT_TYPE):
     raw_text = update.message.text
     
-    # 1. Define the separator
-    delimiter = "🚨 Referral Alert 🚨"
+    # 1. Normalize the input. 
+    # If the user sends "🚨 Referral Alert 🚨", we turn it into "Referral Alert" so we can split easily.
+    # If the user sends just "Referral Alert", it stays the same.
+    clean_text = raw_text.replace("🚨 Referral Alert 🚨", "Referral Alert")
+    
+    # 2. Define the trigger phrase
+    trigger = "Referral Alert"
 
-    if delimiter in raw_text:
-        parts = raw_text.split(delimiter)
+    if trigger in clean_text:
+        # Split by the phrase "Referral Alert"
+        parts = clean_text.split(trigger)
 
         for part in parts:
-            clean_part = part.strip()
-            if clean_part:
-                # 🚨 UPDATED LINE BELOW: Added \n\n for the empty line
-                final_message = f"<b>{delimiter}\n\n{clean_part}</b>"
+            content = part.strip()
+            
+            # Only process if there is actual content (skip empty splits)
+            if content:
+                # 3. Reconstruct the message
+                # We ADD the emojis back manually
+                # We ADD \n\n to force a blank line
+                final_message = f"<b>🚨 Referral Alert 🚨\n\n{content}</b>"
                 
                 await update.message.reply_text(final_message, parse_mode="HTML")
-                await asyncio.sleep(1) # Delay to prevent spam blocking
+                
+                # Short delay to be safe
+                await asyncio.sleep(1)
     
     else:
-        # If it's just a regular message without the specific header, bold it all.
-        # You can also add \n\n here if you want the header separated (if the user typed it manually)
+        # Fallback: If no "Referral Alert" phrase is found, just bold the whole text.
         bold_text = f"<b>{raw_text}</b>"
         await update.message.reply_text(bold_text, parse_mode="HTML")
 
